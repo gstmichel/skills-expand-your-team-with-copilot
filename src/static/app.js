@@ -40,6 +40,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let searchQuery = "";
   let currentDay = "";
   let currentTimeRange = "";
+  let highlightedActivity = "";
 
   // Authentication state
   let currentUser = null;
@@ -472,6 +473,56 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // Build a shareable URL for an activity
+  function buildShareUrl(activityName) {
+    return (
+      window.location.origin +
+      window.location.pathname +
+      "?activity=" +
+      encodeURIComponent(activityName)
+    );
+  }
+
+  // Handle clicks on the social share buttons inside an activity card
+  function handleShareClick(event) {
+    const button = event.currentTarget;
+    const activityName = button.dataset.activity;
+    const shareUrl = buildShareUrl(activityName);
+    const shareText = `Check out ${activityName} at Mergington High School!`;
+
+    if (button.classList.contains("share-twitter")) {
+      window.open(
+        `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`,
+        "_blank",
+        "noopener,noreferrer"
+      );
+    } else if (button.classList.contains("share-facebook")) {
+      window.open(
+        `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`,
+        "_blank",
+        "noopener,noreferrer"
+      );
+    } else if (button.classList.contains("share-whatsapp")) {
+      window.open(
+        `https://wa.me/?text=${encodeURIComponent(shareText + " " + shareUrl)}`,
+        "_blank",
+        "noopener,noreferrer"
+      );
+    } else if (button.classList.contains("share-copy")) {
+      navigator.clipboard.writeText(shareUrl).then(() => {
+        const original = button.textContent;
+        button.textContent = "✓";
+        button.classList.add("share-copy-success");
+        setTimeout(() => {
+          button.textContent = original;
+          button.classList.remove("share-copy-success");
+        }, 2000);
+      }).catch(() => {
+        showMessage("Could not copy link. Please copy it from the address bar.", "error");
+      });
+    }
+  }
+
   // Function to render a single activity card
   function renderActivityCard(name, details) {
     const activityCard = document.createElement("div");
@@ -569,6 +620,13 @@ document.addEventListener("DOMContentLoaded", () => {
         `
         }
       </div>
+      <div class="share-buttons">
+        <span class="share-label">Share:</span>
+        <button class="share-btn share-twitter" data-activity="${name}" title="Share on X (Twitter)" aria-label="Share on X (Twitter)">𝕏</button>
+        <button class="share-btn share-facebook" data-activity="${name}" title="Share on Facebook" aria-label="Share on Facebook">f</button>
+        <button class="share-btn share-whatsapp" data-activity="${name}" title="Share on WhatsApp" aria-label="Share on WhatsApp">W</button>
+        <button class="share-btn share-copy" data-activity="${name}" title="Copy link" aria-label="Copy link">🔗</button>
+      </div>
     `;
 
     // Add click handlers for delete buttons
@@ -585,6 +643,20 @@ document.addEventListener("DOMContentLoaded", () => {
           openRegistrationModal(name);
         });
       }
+    }
+
+    // Add click handlers for share buttons
+    activityCard.querySelectorAll(".share-btn").forEach((btn) => {
+      btn.addEventListener("click", handleShareClick);
+    });
+
+    // Highlight card if it matches the shared activity from the URL
+    if (highlightedActivity && name === highlightedActivity) {
+      activityCard.classList.add("highlighted");
+      // Small delay to ensure the card is in the DOM before scrolling
+      setTimeout(() => {
+        activityCard.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 150);
     }
 
     activitiesList.appendChild(activityCard);
@@ -861,7 +933,17 @@ document.addEventListener("DOMContentLoaded", () => {
     setTimeRangeFilter,
   };
 
+  // Read ?activity= URL parameter so shared links highlight the right card
+  function handleSharedActivity() {
+    const params = new URLSearchParams(window.location.search);
+    const shared = params.get("activity");
+    if (shared) {
+      highlightedActivity = shared;
+    }
+  }
+
   // Initialize app
+  handleSharedActivity();
   checkAuthentication();
   initializeFilters();
   fetchActivities();
